@@ -959,9 +959,9 @@
     dragstartHandler: function (event) {
       event.originalEvent.dataTransfer.setData('text/html', 'hack for firefox');
       // if users enable zoom or direction options
-      if (this.$chart.css('transform') !== 'none') {
-        this.createGhostNode(event);
-      }
+      // if (this.$chart.css('transform') !== 'none') {
+      //   this.createGhostNode(event);
+      // }
       this.filterAllowedDropNodes($(event.target));
     },
     //
@@ -1136,8 +1136,9 @@
         });
       }
       // construct the content of node
-      var $nodeDiv = $('<div' + (opts.draggable ? ' draggable="true"' : '') + (data[opts.nodeId] ? ' id="' + data[opts.nodeId] + '"' : '') + (data.parentId ? ' data-parent="' + data.parentId + '"' : '') + '>')
+      var $nodeDiv = $('<div' + (data[opts.nodeId] ? ' id="' + data[opts.nodeId] + '"' : '') + (data.parentId ? ' data-parent="' + data.parentId + '"' : '') + '>')
         .addClass('node ' + (data.className || '') +  (level > opts.visibleLevel ? ' slide-up' : ''));
+        $nodeDiv[0].draggable = opts.draggable;
       if (opts.nodeTemplate) {
         $nodeDiv.append(opts.nodeTemplate(data));
       } else {
