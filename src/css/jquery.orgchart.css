@@ -9,7 +9,7 @@
  * http://www.opensource.org/licenses/MIT
  */
 
-.orgchart {
+ .orgchart {
   box-sizing: border-box;
   display: inline-block;
   min-height: 202px;
@@ -24,6 +24,7 @@
   background-size: 10px 10px;
   border: 1px dashed rgba(0,0,0,0);
   padding: 20px;
+  transform-origin:0 0;
 }
 
 .orgchart .hidden, .orgchart~.hidden {
