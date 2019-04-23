@@ -35,7 +35,11 @@
       'pan': false,
       'zoom': false,
       'zoominLimit': 7,
-      'zoomoutLimit': 0.5
+      'zoomoutLimit': 0.5,
+      'zoombyMousePosition': true,
+      'zoominFactor': 1.15,
+      'zoomoutFactor': 0.85,
+      'zoomPinchModifier': 0.9
     };
   };
   //
@@ -265,8 +269,8 @@
     zoomWheelHandler: function (e) {
       var oc = e.data.oc;
       e.preventDefault();
-      var newScale  = 1 + (e.originalEvent.deltaY > 0 ? -0.2 : 0.2);
-      oc.setChartScale(oc.$chart, newScale);
+      var newScale  = (e.originalEvent.deltaY > 0) ? oc.$chart.data('options').zoomoutFactor : oc.$chart.data('options').zoominFactor;
+      oc.setChartScale(oc.$chart, newScale, e);
     },
     //
     zoomStartHandler: function (e) {
@@ -290,9 +294,9 @@
         oc.$chart.data('pinching', false);
         var diff = oc.$chart.data('pinchDistEnd') - oc.$chart.data('pinchDistStart');
         if (diff > 0) {
-          oc.setChartScale(oc.$chart, 1.2);
+          oc.setChartScale(oc.$chart, oc.$chart.data('options').zoominFactor * oc.$chart.data('options').zoomPinchModifier, e);
         } else if (diff < 0) {
-          oc.setChartScale(oc.$chart, 0.8);
+          oc.setChartScale(oc.$chart, oc.$chart.data('options').zoomoutFactor * oc.$chart.data('options').zoomPinchModifier, e);
         }
       }
     },
@@ -315,29 +319,74 @@
       (e.touches[0].clientY - e.touches[1].clientY) * (e.touches[0].clientY - e.touches[1].clientY));
     },
     //
-    setChartScale: function ($chart, newScale) {
-      var opts = $chart.data('options');
-      var lastTf = $chart.css('transform');
+    setChartScale: function ($chart, newScale, event) {
+      var opts = this.$chart.data('options');
+      var byMouse = opts.zoombyMousePosition;
+      var lastTf = this.$chart.css('transform');
       var matrix = '';
       var targetScale = 1;
-      if (lastTf === 'none') {
-        $chart.css('transform', 'scale(' + newScale + ',' + newScale + ')');
-      } else {
+      var isMatrix3d = lastTf.indexOf('3d') >= 0;
+
+      if (lastTf === 'none' && !byMouse)
+      {
+        this.$chart.css('transform', 'scale(' + newScale + ',' + newScale + ')');
+      }
+      else
+      {
+        if (lastTf === 'none') lastTf = "matrix(1,0,0,1,0,0)";
+
         matrix = lastTf.split(',');
-        if (lastTf.indexOf('3d') === -1) {
-          targetScale = Math.abs(window.parseFloat(matrix[3]) * newScale);
-          if (targetScale > opts.zoomoutLimit && targetScale < opts.zoominLimit) {
-            $chart.css('transform', lastTf + ' scale(' + newScale + ',' + newScale + ')');
+        var currentScale = isMatrix3d ? window.parseFloat(matrix[5]) : window.parseFloat(matrix[3]);
+        targetScale = Math.abs(currentScale * newScale);
+
+        if (targetScale > opts.zoomoutLimit && targetScale < opts.zoominLimit)
+        {
+          if (byMouse && event)
+          {
+            var e = event || window.event;
+            var scrollX = document.documentElement.scrollLeft || document.body.scrollLeft;
+            var scrollY = document.documentElement.scrollTop || document.body.scrollTop;
+            var x = e.pageX || e.clientX + scrollX;
+            var y = e.pageY || e.clientY + scrollY;
+            var cx = this.$chartContainer.offset().left;
+            var cy = this.$chartContainer.offset().top;
+            var zx = x-cx,zy = y-cy;  
+            var px = window.parseFloat(matrix[4]);
+            var py = window.parseFloat(matrix[5].split(")")[0]);
+            var ztx = (zx - px)/currentScale;
+            var zty = (zy - py)/currentScale;
+
+            px = -ztx * targetScale + zx;
+            py = -zty * targetScale + zy;
+
+            if (isMatrix3d)
+            {
+              matrix[3] = px.toString();
+              matrix[7] = py.toString()+')';
+              this.$chart.css('transform',matrix.join(',') + ' scale3d(' + newScale + ',' + newScale + ')');
+            }
+            else
+            {
+              matrix[4] = px.toString();
+              matrix[5] = py.toString()+')';
+              this.$chart.css('transform',matrix.join(',') + ' scale(' + newScale + ',' + newScale + ')');
+            }   
           }
-        } else {
-          targetScale = Math.abs(window.parseFloat(matrix[1]) * newScale);
-          if (targetScale > opts.zoomoutLimit && targetScale < opts.zoominLimit) {
-            $chart.css('transform', lastTf + ' scale3d(' + newScale + ',' + newScale + ', 1)');
+          else
+          {
+            if (isMatrix3d)
+            {
+              this.$chart.css('transform', lastTf + ' scale3d(' + newScale + ',' + newScale + ', 1)');
+            }
+            else
+            {
+              this.$chart.css('transform', lastTf + ' scale(' + newScale + ',' + newScale + ')');
+            }
           }
         }
       }
     },
-    //
+  	//
     buildJsonDS: function ($li) {
       var that = this;
       var subObj = {
@@ -655,7 +704,8 @@
       return true;
     },
     // terminate loading status for requesting new nodes
-    endLoading: function ($edge) {
+    endLoading: function ($edge)
+    {
       var $node = $edge.parent();
       $edge.removeClass('hidden');
       $node.find('.spinner').remove();
